@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include <openssl/bio.h>
@@ -16,44 +17,36 @@
 #include <openssl/ssl.h>
 #include <postgresql/libpq-fe.h>
 
-struct addrNode {
-	char url[512];
-	struct addrNode *next;
-};
+#include "download_videos.h"
+#include "tpool.h"
 
-int
-addAddrNode(struct addrNode**, char*);
-
-void
-destroyAddrNodeList(struct addrNode*);
-
-void
-fetchAddrsTLS(struct addrNode *list);
-
-void
-getAddrFromUrl(char*, char*, int, int);
-
-void
-getPathFromUrl(char*, char*, int);
+#define PROD_CONN_STR "user=postgres password=DigiSigns1029 host=db.udlsgnjteywvklskdwvx.supabase.co port=5432 dbname=postgres"
 
 int
 main(void)
 {
-	const char *connStr;
+	downloadVideos();	
+
+	return 0;
+}
+
+void
+downloadVideos(void)
+{
+	char const *connStr, *uid, *sid;
 	PGconn *conn;
 	PGresult *res;
 	int numFields;
 	char buf[512];
 	struct addrNode *list; 
 
-	connStr = "user=postgres password=DigiSigns1029 host=db.udlsgnjteywvklskdwvx.supabase.co port=5432 dbname=postgres";
-
-	conn = PQconnectdb(connStr);
+	conn = PQconnectdb(PROD_CONN_STR);
 	if (PQstatus(conn) != CONNECTION_OK) {
 		fprintf(stderr, "%s\n", PQerrorMessage(conn));
 		goto EXIT;
 	}
 
+	// TODO: add the correct UID, SID, and date to query
 	res = PQexec(conn,
 				 "SELECT distinct video_url FROM videos;"
 				);
@@ -72,10 +65,8 @@ main(void)
 	PQclear(res);
 	
 	destroyAddrNodeList(list);
-	printf("big ws\n");
 EXIT:
 	PQfinish(conn);
-	return 0;
 }
 
 int
@@ -94,9 +85,7 @@ addAddrNode(struct addrNode **list, char *url)
 	}
 
 	struct addrNode *node = malloc(sizeof(struct addrNode));
-	// copying to url buffer
 	strncpy(node->url, url, sizeof(node->url) - 1);
-	// will be null provided 
 	node->next = *list;
 	*list = node;
 	return 0;
@@ -150,6 +139,113 @@ getPathFromUrl(char *inUrl, char *outBuf, int outBufSize)
 			return;
 		}
 	}
+}
+
+// TODO: add file output with correct name
+void
+getVideoFromURLWithTLS(void *args)
+{
+	char *URL;
+	struct sockaddr_in sin;
+	struct hostent *hp;
+	SSL_CTX *ctx;
+	SSL *ssl;
+	BIO *out;
+	int bytesRecd, s;
+	char inBuf[1024], hostname[512], path[512];
+
+	URL = args;
+
+	OPENSSL_init_ssl(OPENSSL_INIT_NO_LOAD_SSL_STRINGS, NULL);
+
+	if (SSL_library_init() < 0) {
+		fprintf(stderr, "Could not init OpenSSL\n");
+		goto ERR_0;
+	}
+
+	ctx = SSL_CTX_new(TLS_client_method());
+	if (!ctx) {
+		fprintf(stderr, "ctx\n");
+		goto ERR_0;
+	}
+
+	getAddrFromUrl(URL, hostname, sizeof(hostname), 443);
+	getPathFromUrl(URL, path, sizeof(path));
+
+	printf("generated hostname: %s\n", hostname);
+
+	// Standard BSD socket active connect
+	if (!(hp = gethostbyname(hostname))) {
+		fprintf(stderr, "Standard conn failed\n");
+	}
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
+	sin.sin_port = htons(443);
+
+	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		fprintf(stderr, "Couldn't make socket\n");
+		goto ERR_1;
+	}
+
+	if (connect(s, (struct sockaddr*)&sin, sizeof(sin)) == -1) {
+		fprintf(stderr, "Couldn't connect to server\n");
+		goto ERR_2;
+	}
+
+	// creating SSL handle and associating with previously connected socket's fd
+	ssl = SSL_new(ctx);
+	if (!ssl) {
+		fprintf(stderr, "ssl\n");
+		goto ERR_3;
+	}
+	SSL_set_fd(ssl, s);
+	SSL_set_tlsext_host_name(ssl, hostname);
+	if (SSL_connect(ssl) <= 0) {
+		fprintf(stderr, "handshake\n");
+		goto ERR_3;
+	}
+
+	memset(inBuf, 0 , sizeof(inBuf));
+	strncat(inBuf, "GET ", sizeof(inBuf) - strlen(inBuf) - 1);
+	strncat(inBuf, path, sizeof(inBuf) - strlen(inBuf) - 1);
+	strncat(inBuf, " HTTP/1.1\r\n", sizeof(inBuf) - strlen(inBuf) - 1);
+	strncat(inBuf, "Host: ", sizeof(inBuf) - strlen(inBuf) - 1);
+	strncat(inBuf, hostname, sizeof(inBuf) - strlen(inBuf) - 1);
+	strncat(inBuf, "\r\n", sizeof(inBuf) - strlen(inBuf) - 1);
+	strncat(inBuf, "Accept: */*\r\n\r\n", sizeof(inBuf) - strlen(inBuf) - 1);
+
+	printf("%s\n", inBuf);
+	SSL_write(ssl, inBuf, strlen(inBuf));
+
+	memset(inBuf, 0, sizeof(inBuf));
+	bytesRecd = SSL_read(ssl, inBuf, sizeof(inBuf));
+	inBuf[bytesRecd] = 0;
+	printf("%s\n", inBuf);
+	memset(inBuf, 0, sizeof(inBuf));
+
+	SSL_shutdown(ssl);
+ERR_3:
+	SSL_free(ssl);
+ERR_2:
+	close(s);
+ERR_1:
+	SSL_CTX_free(ctx);
+ERR_0:
+	;
+}
+
+void
+getVideosMT(struct addrNode *list)
+{
+	tpool_t *pool;
+	pool = initPool(8);
+	while (list != NULL)
+	{
+		addWork(pool, getVideoFromURLWithTLS, list->url);
+	}
+	killPool(pool);
 }
 
 void
