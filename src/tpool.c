@@ -43,7 +43,7 @@ defaultThread(void *arg)
 			goto EXIT;
 	}
 EXIT:
-	;
+	return 0;
 }
 
 void

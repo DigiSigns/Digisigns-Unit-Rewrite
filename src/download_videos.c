@@ -33,12 +33,16 @@ main(void)
 void
 downloadVideos(void)
 {
-	char const *connStr, *uid, *sid;
+	char const *uid, *sid;
 	PGconn *conn;
 	PGresult *res;
 	int numFields;
-	char buf[512];
 	struct addrNode *list; 
+
+	uid = getenv("uid");
+	sid = getenv("sid");
+
+	printf("Unit ID: %s\nStore ID: %s\n", uid, sid);
 
 	conn = PQconnectdb(PROD_CONN_STR);
 	if (PQstatus(conn) != CONNECTION_OK) {
@@ -150,7 +154,6 @@ getVideoFromURLWithTLS(void *args)
 	struct hostent *hp;
 	SSL_CTX *ctx;
 	SSL *ssl;
-	BIO *out;
 	int bytesRecd, s;
 	char inBuf[1024], hostname[512], path[512];
 
@@ -255,7 +258,6 @@ fetchAddrsTLS(struct addrNode *list)
 	struct hostent *hp;
 	SSL_CTX *ctx;
 	SSL *ssl;
-	BIO *out;
 	int bytesRecd, s;
 	char inBuf[1024], hostname[512], path[512];
 
@@ -337,7 +339,6 @@ LOOP_ERR_0:
 		list = list->next;
 	}
 
-ERR_1:
 	SSL_CTX_free(ctx);
 ERR_0:
 	;
