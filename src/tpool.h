@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <threads.h>
 
+#include "download_videos.h"
+
 typedef void (*thread_func_t)(void*);
 
 struct thread_info {
@@ -32,4 +34,4 @@ addWork(tpool_t*, thread_func_t, void*);
 void
 killPool(tpool_t*);
 
-#endif //TPOOL_H
+#endif // TPOOL_H

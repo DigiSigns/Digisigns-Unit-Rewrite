@@ -12,6 +12,9 @@
 tpool_t*
 initPool(int numThreads)
 {
+	if (numThreads < 1) {
+		return NULL;
+	}
 	tpool_t *newPool;
 
 	newPool = malloc(sizeof(tpool_t));
@@ -33,6 +36,7 @@ initPool(int numThreads)
 int
 defaultThread(void *arg)
 {
+	printf("Thread spawned\n");
 	struct thread_info *info = arg;
 	for (;;) {
 		if (atomic_load(&info->active)) {
@@ -43,12 +47,17 @@ defaultThread(void *arg)
 			goto EXIT;
 	}
 EXIT:
+	printf("Thread exited\n");
 	return 0;
 }
 
 void
 addWork(tpool_t *pool, thread_func_t func, void *args)
 {
+	if (!pool) {
+		printf("Null pool\n");
+		func(args);
+	}
 	int n = pool->numThreads;
 	uint8_t found = 0;
 	while (!found) {
@@ -67,7 +76,9 @@ addWork(tpool_t *pool, thread_func_t func, void *args)
 void
 killPool(tpool_t *pool)
 {
-	assert(pool);
+	if (!pool) {
+		return;
+	}
 	int numThreads = pool->numThreads;
 	for (int i = 0; i < numThreads; ++i)
 		atomic_store(&pool->thread_args[i].kill, 1);

@@ -1,13 +1,15 @@
 #ifndef DOWNLOAD_VIDEOS_H
 #define DOWNLOAD_VIDEOS_H
 
+#include <stdio.h>
+
 struct addrNode {
 	char url[512];
 	struct addrNode *next;
 };
 
 void
-downloadVideos(void);
+download_videos(int);
 
 int
 addAddrNode(struct addrNode**, char*);
@@ -16,15 +18,9 @@ void
 destroyAddrNodeList(struct addrNode*);
 
 void
-getAddrFromUrl(char*, char*, int, int);
+getVideosMT(struct addrNode*, int);
 
 void
-getPathFromUrl(char*, char*, int);
+writePastHeader(char*, FILE*);
 
-void
-getVideosMT(struct addrNode*);
-
-void
-fetchAddrsTLS(struct addrNode *list);
-
-#endif //DOWNLOAD_VIDEOS_H
+#endif // DOWNLOAD_VIDEOS_H
