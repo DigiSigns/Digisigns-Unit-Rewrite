@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "main.h"
 #include "url_utils.h"
 
-#define DATA_DIR "resources/"
 
 void
 getAddrFromUrl(char *inUrl, char *outBuf, int outBufSize)
@@ -81,7 +81,7 @@ unescapeFileName(char *fileName)
 	memcpy(fileNameCopy, fileName, fileNameSize);
 	memset(fileName, 0, fileNameSize);
 
-	strcat(fileName, DATA_DIR);
+	strcat(fileName, DATA_DIR PRE_PROC);
 
 	token = strtok(fileNameCopy, "%20");
 	if (token != NULL) {

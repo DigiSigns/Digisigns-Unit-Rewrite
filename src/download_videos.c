@@ -1,11 +1,5 @@
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#include <netdb.h>
-#include <netinet/in.h>
-
 #include <assert.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,12 +7,11 @@
 #include <threads.h>
 #include <unistd.h>
 
-#include <openssl/bio.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
+#include <curl/curl.h>
 #include <postgresql/libpq-fe.h>
 
 #include "download_videos.h"
+#include "main.h"
 #include "tpool.h"
 #include "url_utils.h"
 
@@ -37,6 +30,7 @@ download_videos(int numThreads)
 	//sid = getenv("sid");
 
 	//printf("Unit ID: %s\nStore ID: %s\n", uid, sid);
+	curl_global_init(CURL_GLOBAL_ALL);
 
 	conn = PQconnectdb(PROD_CONN_STR);
 	if (PQstatus(conn) != CONNECTION_OK) {
@@ -46,7 +40,8 @@ download_videos(int numThreads)
 
 	// TODO: add the correct UID, SID, and date to query
 	res = PQexec(conn,
-				 "SELECT distinct video_url FROM videos limit 1;"
+				 "SELECT DISTINCT video_url FROM videos WHERE video_url "
+				 "NOT LIKE '%RealAssist%';"
 				);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
 		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));
@@ -66,6 +61,7 @@ download_videos(int numThreads)
 	destroyAddrNodeList(list);
 EXIT:
 	PQfinish(conn);
+	curl_global_cleanup();
 }
 
 int
@@ -110,139 +106,57 @@ destroyAddrNodeList(struct addrNode *list)
 	}
 }
 
-// TODO: add file output with correct name
-// used for each thread
-void
-getVideoFromURLWithTLS(void *args)
+static size_t
+writeCallback(void *data, size_t size, size_t nmemb, void *usrPtr)
 {
-	struct sockaddr_in sin;
-	struct hostent *hp;
-	SSL_CTX *ctx;
-	SSL *ssl;
+	FILE *file = (FILE*)usrPtr;
+	return fwrite(data, size, nmemb, file);
+}
+
+static void
+getVideoFromURL(void *args)
+{
+	CURL *curl;
+	CURLcode res;
 	FILE *file;
-	int bytesRecd, s, fileWriteBufferPtr;
-	char fileWriteBuffer[1048576], inBuf[16384], hostname[512], path[512], fileName[1024], *URL;
+	char *url, path[512], fileName[512], errMsg[256];
 
-	if (!args) {
-		fprintf(stderr, "Args is null. Something is wrong here, I can feel it...\n");
-		goto ERR_0;
-	}
+	url = (char*)args;
 
-	URL = args;
-
-	OPENSSL_init_ssl(OPENSSL_INIT_NO_LOAD_SSL_STRINGS, NULL);
-
-	if (SSL_library_init() < 0) {
-		fprintf(stderr, "Could not init OpenSSL\n");
-		goto ERR_0;
-	}
-
-	ctx = SSL_CTX_new(TLS_client_method());
-	if (!ctx) {
-		fprintf(stderr, "ctx\n");
-		goto ERR_0;
-	}
-
-	SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION | SSL_MODE_RELEASE_BUFFERS);
-
-	getAddrFromUrl(URL, hostname, sizeof(hostname));
-	getPathFromUrl(URL, path, sizeof(path));
+	getPathFromUrl(url, path, sizeof(path));
 	getFileNameFromPath(path, fileName, sizeof(fileName));
 
-	// Standard BSD socket active connect
-	if (!(hp = gethostbyname(hostname))) {
-		fprintf(stderr, "Standard conn failed\n");
+	if (!(curl = curl_easy_init())) {
+		fprintf(stderr, "Couldn't initialize curl\n");
+		goto ERR_0;
 	}
 
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
-	sin.sin_port = htons(443);
-
-	if ((s = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		fprintf(stderr, "Couldn't make socket\n");
+	if (!(file = fopen(fileName, "w"))) {
+		memset(errMsg, 0, sizeof(errMsg));
+		strerror_r(errno, errMsg, (sizeof(errMsg) - 1));
+		fprintf(stderr, "Couldn't open file %s: %s\n", fileName, errMsg);
 		goto ERR_1;
 	}
 
-	if (connect(s, (struct sockaddr*)&sin, sizeof(sin)) == -1) {
-		fprintf(stderr, "Couldn't connect to server\n");
-		goto ERR_2;
-	}
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)file);
+	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+	res = curl_easy_perform(curl);
 
-	// creating SSL handle and associating with previously connected socket's fd
-	ssl = SSL_new(ctx);
-	if (!ssl) {
-		fprintf(stderr, "ssl\n");
-		goto ERR_3;
-	}
-	SSL_set_fd(ssl, s);
-	SSL_set_tlsext_host_name(ssl, hostname);
-	if (SSL_connect(ssl) <= 0) {
-		fprintf(stderr, "handshake\n");
-		goto ERR_3;
-	}
-
-	file = fopen(fileName, "w");
-	if (!file) {
-		fprintf(stderr, "Couldn't open file %s for writing!\n", fileName);
-		goto ERR_4;
-	}
-
-	memset(inBuf, 0 , sizeof(inBuf));
-	strncat(inBuf, "GET ", sizeof(inBuf) - strlen(inBuf) - 1);
-	strncat(inBuf, path, sizeof(inBuf) - strlen(inBuf) - 1);
-	strncat(inBuf, " HTTP/1.1\r\n", sizeof(inBuf) - strlen(inBuf) - 1);
-	strncat(inBuf, "Host: ", sizeof(inBuf) - strlen(inBuf) - 1);
-	strncat(inBuf, hostname, sizeof(inBuf) - strlen(inBuf) - 1);
-	strncat(inBuf, "\r\n", sizeof(inBuf) - strlen(inBuf) - 1);
-	strncat(inBuf, "Accept: */*\r\n\r\n", sizeof(inBuf) - strlen(inBuf) - 1);
-
-	//printf("%s\n", inBuf);
-	if (SSL_write(ssl, inBuf, strlen(inBuf)) <= 0) {
-		fprintf(stderr, "Initial write to endpoint failed!\n");
-		goto ERR_5;
-	}
-
-
-	memset(inBuf, 0, sizeof(inBuf));
-	bytesRecd = SSL_read(ssl, inBuf, (sizeof(inBuf) - 1));
-	if (bytesRecd <= 0) {
-		fprintf(stderr, "Initial read from endpoint failed!\n");
-		goto ERR_5;
-	}
-	inBuf[bytesRecd] = 0;
-	//printf("%s\n", inBuf);
-
-
-	if (bytesRecd > 0) {
-		writePastHeader(inBuf, file);
-	}
-
-	fileWriteBufferPtr = 0;
-	memset(inBuf, 0, sizeof(inBuf));
-	while ((bytesRecd = SSL_read(ssl, inBuf, sizeof(inBuf))) > 0) {
-		if (bytesRecd + fileWriteBufferPtr > sizeof(fileWriteBuffer)) {
-			fwrite(fileWriteBuffer, 1, fileWriteBufferPtr, file);
-			fileWriteBufferPtr = 0;
-		}
-		memcpy(fileWriteBuffer + fileWriteBufferPtr,
-			   inBuf,
-			   bytesRecd
-			  );
-		fileWriteBufferPtr += bytesRecd;
-	}
-	printf("Done downloading %s\n", fileName);
-
-ERR_5:
 	fclose(file);
-ERR_4:
-	SSL_shutdown(ssl);
-ERR_3:
-	SSL_free(ssl);
-ERR_2:
-	close(s);
+
+	if (res != CURLE_OK) {
+		fprintf(stderr,
+				"curl_easy_perform() failed: %s\n",
+				curl_easy_strerror(res)
+			   );
+		// delete opened file here? it'll be empty if this fails
+		unlink(fileName);
+	}
+
 ERR_1:
-	SSL_CTX_free(ctx);
+	curl_easy_cleanup(curl);
 ERR_0:
 	;
 }
@@ -254,7 +168,7 @@ getVideosMT(struct addrNode *list, int numThreads)
 	pool = initPool(numThreads);
 	while (list != NULL)
 	{
-		addWork(pool, getVideoFromURLWithTLS, list->url);
+		addWork(pool, getVideoFromURL, list->url);
 		list = list->next;
 	}
 	killPool(pool);

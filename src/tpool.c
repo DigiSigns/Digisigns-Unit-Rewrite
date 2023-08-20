@@ -36,7 +36,6 @@ initPool(int numThreads)
 int
 defaultThread(void *arg)
 {
-	printf("Thread spawned\n");
 	struct thread_info *info = arg;
 	for (;;) {
 		if (atomic_load(&info->active)) {
@@ -47,7 +46,6 @@ defaultThread(void *arg)
 			goto EXIT;
 	}
 EXIT:
-	printf("Thread exited\n");
 	return 0;
 }
 
@@ -55,8 +53,8 @@ void
 addWork(tpool_t *pool, thread_func_t func, void *args)
 {
 	if (!pool) {
-		printf("Null pool\n");
 		func(args);
+		return;
 	}
 	int n = pool->numThreads;
 	uint8_t found = 0;
