@@ -30,7 +30,7 @@ play()
     const struct timespec initWait = { .tv_nsec = msToNs(250) };
     const struct timespec regWait = { .tv_nsec = msToNs(50) };
     
-    if (!(videoPtr = fopen(VIDEO_PATH, "w"))) {
+    if (!(videoPtr = fopen(VIDEO_PATH, "r"))) {
         fprintf(stderr,
                 "Error - could't open file %s: %s\n",
                 VIDEO_PATH,
@@ -50,13 +50,12 @@ play()
     mp = libvlc_media_player_new_from_media(m);
     libvlc_set_fullscreen(mp, 1);
 
-    libvlc_media_player_play(mp);
-    thrd_sleep(&initWait, NULL);
     for (;;) {
-        if (!libvlc_media_player_is_playing(mp)) {
-            libvlc_media_player_play(mp);
+        libvlc_media_player_play(mp);
+        thrd_sleep(&initWait, NULL);
+        while (libvlc_media_player_is_playing(mp)) {
+            thrd_sleep(&regWait, NULL);
         }
-        thrd_sleep(&regWait, NULL);
     }
 
     // should never be reached
