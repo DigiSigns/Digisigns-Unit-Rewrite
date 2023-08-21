@@ -42,7 +42,7 @@ download_videos(int numThreads)
 	res = PQexec(conn,
 				 "SELECT DISTINCT video_url FROM videos WHERE video_url "
 				 "NOT LIKE '%RealAssist%' AND video_url NOT LIKE '%Virginia%' "
-                 "LIMIT 2;"
+                 "AND video_url NOT LIKE '%Updating%' LIMIT 2;"
 				);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
 		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));
