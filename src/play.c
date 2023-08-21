@@ -27,7 +27,7 @@ play()
     libvlc_media_t *m;
     thrd_t thrd;
 
-    const struct timespec initWait = { .tv_nsec = msToNs(250) };
+    const struct timespec initWait = { .tv_nsec = msToNs(400) };
     const struct timespec regWait = { .tv_nsec = msToNs(50) };
     
     if (!(videoPtr = fopen(VIDEO_PATH, "r"))) {
@@ -46,6 +46,7 @@ play()
                );
 
     inst = libvlc_new(0, NULL);
+
     m = libvlc_media_new_path(inst, VIDEO_PATH);
     mp = libvlc_media_player_new_from_media(m);
     libvlc_set_fullscreen(mp, 1);
