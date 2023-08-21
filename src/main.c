@@ -16,8 +16,7 @@ main(void)
 	download_videos(NUM_THREADS);
     printf("Processing videos\n");
 	process_videos();
-    //play();
-    printf("Video would play now\n");
+    play();
 
 	return 0;
 }
