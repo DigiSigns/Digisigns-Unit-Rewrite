@@ -1,4 +1,5 @@
 #!/bin/bash
 
-cd "$0"/..
+currDir="$(dirname $0)"
+cd "$currDir"/..
 ./app
