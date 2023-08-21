@@ -41,7 +41,8 @@ download_videos(int numThreads)
 	// TODO: add the correct UID, SID, and date to query
 	res = PQexec(conn,
 				 "SELECT DISTINCT video_url FROM videos WHERE video_url "
-				 "NOT LIKE '%RealAssist%';"
+				 "NOT LIKE '%RealAssist%' AND video_url NOT LIKE '%Virginia%' "
+                 "LIMIT 6;"
 				);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
 		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));

@@ -1,7 +1,7 @@
 #ifndef PLAY_H
 #define PLAY_H
 
-void
+int
 play();
 
 #endif // PLAY_H

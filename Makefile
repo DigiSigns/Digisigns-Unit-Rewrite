@@ -4,7 +4,7 @@ CFLAGS = -Wall -pedantic -pipe -g
 SRC = src
 OBJ = build
 DATADIR = resources
-LINK = $(patsubst %,-l %, curl pq pthread avcodec avformat)
+LINK = $(patsubst %,-l %, curl pq pthread avcodec avformat vlc)
 
 OUTNAME = app
 

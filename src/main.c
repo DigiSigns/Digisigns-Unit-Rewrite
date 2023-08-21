@@ -12,9 +12,12 @@ main(void)
 {
 	clearDir(DATA_DIR PRE_PROC);
 	clearDir(DATA_DIR POST_PROC);
+    printf("Downloading videos\n");
 	download_videos(NUM_THREADS);
+    printf("Processing videos\n");
 	process_videos();
-    play();
+    //play();
+    printf("Video would play now\n");
 
 	return 0;
 }

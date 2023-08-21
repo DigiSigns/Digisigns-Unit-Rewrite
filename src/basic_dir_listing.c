@@ -47,5 +47,7 @@ clearDir(const char *dirName)
 		unlink(nameBuf);
 	}
 
+    free(nameList);
+
 	return 0;
 }
