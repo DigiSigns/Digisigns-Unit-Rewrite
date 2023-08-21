@@ -51,6 +51,7 @@ play()
     libvlc_set_fullscreen(mp, 1);
 
     for (;;) {
+        libvlc_media_player_set_media(mp, m);
         libvlc_media_player_play(mp);
         thrd_sleep(&initWait, NULL);
         while (libvlc_media_player_is_playing(mp)) {
@@ -59,6 +60,9 @@ play()
     }
 
     // should never be reached
+    libvlc_media_release(m);
+    libvlc_media_player_release(mp);
+    libvlc_release(inst);
     thrd_join(thrd, NULL);
 
     return 0;
