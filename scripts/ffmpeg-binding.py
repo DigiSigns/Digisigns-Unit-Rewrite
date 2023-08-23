@@ -89,10 +89,11 @@ def main():
         # Running command
         stream.overwrite_output().global_args(
             '-fflags',
-            '+igndts'
-        ).global_args(
+            '+igndts',
             '-loglevel',
-            'error'
+            'error',
+            '-max_muxing_queue_size',
+            '1024'
         ).run()
 
     
@@ -106,7 +107,7 @@ def main():
     
     # Didn't feel like writing this one-liner using ffmpeg-python syntax, this format-string will do    
     # WORKING
-    os.system(f"ffmpeg -y -loglevel error -fflags +igndts -f concat -safe 0 -i {dataDir + 'mp4list'} -preset ultrafast {dataDir + 'mergedVid.mp4'}")
+    os.system(f"ffmpeg -y -loglevel error -fflags +igndts -f concat -safe 0 -i {dataDir + 'mp4list'} -max_muxing_queue_size 1024 -preset ultrafast {dataDir + 'mergedVid.mp4'}")
     
     
         

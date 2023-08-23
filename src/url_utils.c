@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -67,6 +68,7 @@ getFileNameFromPath(char *route, char *outBuf, int outBufSize)
 		memcpy(outBuf, token, copiedSize);
 		token = strtok(NULL, "/");
 	}
+    free(routeCopy);
 	unescapeFileName(outBuf);
 }
 
@@ -93,5 +95,9 @@ unescapeFileName(char *fileName)
 		strncat(fileName, token, (fileNameSize - strlen(fileName) - 1));
 		token = strtok(NULL, "%20");
 	}
+
+    token = strtok(fileName, "?");
+
+    free(fileNameCopy);
 }
 
