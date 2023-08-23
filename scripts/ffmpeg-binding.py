@@ -47,26 +47,19 @@ def main():
                         pad_opts['height'] = str(i['coded_height'])
                     if i['coded_width'] > int(pad_opts['width']):
                         pad_opts['width'] = str(i['coded_width'])
-        video_stream = ffmpeg.input(source).video
-        video_stream = ffmpeg.filter(video_stream, 'fps', fps=30, round='up')
-        video_stream = ffmpeg.filter_(video_stream, 'scale', **{
-            'width': '1920',
-            'height': '1080'
-        })
-        audio_stream = ffmpeg.input(source).audio
-        stream = None
-        if noAudio:
-            # getting a null audio source to slap on the video, filter
-            # breaks otherwise
-            audio_stream = ffmpeg.input('anullsrc', f='lavfi').audio
         if isPicture:
+            video_stream = ffmpeg.input(source, loop=1, framerate=25, t=5).video
             audio_stream = ffmpeg.input('anullsrc', f='lavfi').audio
             video_stream = ffmpeg.filter(
                 video_stream,
                 'fps',
-                fps=150,
+                fps=30,
                 round='up'
             )
+            video_stream = ffmpeg.filter_(video_stream, 'scale', **{
+                'width': '1920',
+                'height': '1080'
+            })
             stream = ffmpeg.output(
                 video_stream,
                 audio_stream,
@@ -74,27 +67,55 @@ def main():
 #aspect="16:9",
                 preset='ultrafast',
                 shortest=None,
-                r='1'
             )
+            stream.overwrite_output().global_args(
+                '-loop',
+                '1',
+                '-framerate',
+                '30',
+                '-t',
+                '3',
+                '-fflags',
+                '+igndts',
+                '-loglevel',
+                'error',
+                '-max_muxing_queue_size',
+                '1024',
+                '-vcodec',
+                'libx264'
+            ).run()
         else:
+            video_stream = ffmpeg.input(source).video
+            video_stream = ffmpeg.filter(video_stream, 'fps', fps=30, round='up')
+            video_stream = ffmpeg.filter_(video_stream, 'scale', **{
+                'width': '1920',
+                'height': '1080'
+            })
+            audio_stream = ffmpeg.input(source).audio
+            stream = None
+            if noAudio:
+                # getting a null audio source to slap on the video, filter
+                # breaks otherwise
+                audio_stream = ffmpeg.input('anullsrc', f='lavfi').audio
             stream = ffmpeg.output(
                 video_stream,
                 audio_stream,
                 dest,
 #aspect="16:9",
                 preset='ultrafast',
-                shortest=None
+                shortest=None,
             )
+            stream.overwrite_output().global_args(
+                '-fflags',
+                '+igndts',
+                '-loglevel',
+                'error',
+                '-max_muxing_queue_size',
+                '1024',
+                '-vcodec',
+                'libx264'
+            ).run()
             
-        # Running command
-        stream.overwrite_output().global_args(
-            '-fflags',
-            '+igndts',
-            '-loglevel',
-            'error',
-            '-max_muxing_queue_size',
-            '1024'
-        ).run()
 
     
     # Generating valid list for ffmpeg to use to concatenate videos
@@ -107,7 +128,7 @@ def main():
     
     # Didn't feel like writing this one-liner using ffmpeg-python syntax, this format-string will do    
     # WORKING
-    os.system(f"ffmpeg -y -loglevel error -fflags +igndts -f concat -safe 0 -i {dataDir + 'mp4list'} -max_muxing_queue_size 1024 -preset ultrafast {dataDir + 'mergedVid.mp4'}")
+    os.system(f"ffmpeg -y -fflags +igndts -f concat -safe 0 -i {dataDir + 'mp4list'} -max_muxing_queue_size 1024 -preset ultrafast -shortest -vcodec libx264 -pix_fmt yuv420p {dataDir + 'mergedVid.mp4'}")
     
     
         
