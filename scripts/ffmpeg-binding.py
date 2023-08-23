@@ -49,6 +49,10 @@ def main():
                         pad_opts['width'] = str(i['coded_width'])
         video_stream = ffmpeg.input(source).video
         video_stream = ffmpeg.filter(video_stream, 'fps', fps=30, round='up')
+        video_stream = ffmpeg.filter_(video_stream, 'scale', **{
+            'width': '1920',
+            'height': '1080'
+        })
         audio_stream = ffmpeg.input(source).audio
         stream = None
         if noAudio:
