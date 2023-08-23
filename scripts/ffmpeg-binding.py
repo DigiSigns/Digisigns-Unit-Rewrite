@@ -70,7 +70,7 @@ def main():
                 video_stream,
                 audio_stream,
                 dest,
-                aspect="16:9",
+#aspect="16:9",
                 preset='ultrafast',
                 shortest=None,
                 r='1'
@@ -80,7 +80,7 @@ def main():
                 video_stream,
                 audio_stream,
                 dest,
-                aspect="16:9",
+#aspect="16:9",
                 preset='ultrafast',
                 shortest=None
             )
