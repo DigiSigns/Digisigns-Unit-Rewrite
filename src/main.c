@@ -1,8 +1,11 @@
+#include <stdio.h>
+
 #include "basic_dir_listing.h"
 #include "download_videos.h"
 #include "main.h"
 #include "play.h"
 #include "process_videos.h"
+#include "status_update.h"
 
 
 #define NUM_THREADS 8
@@ -10,6 +13,8 @@
 int
 main(void)
 {
+    sendStatusUpdate();
+    return 0;
 	clearDir(DATA_DIR PRE_PROC);
 	clearDir(DATA_DIR POST_PROC);
     printf("Downloading videos\n");

@@ -6,8 +6,6 @@
 #include <string.h>
 
 #include "basic_dir_listing.h"
-#include "libavcodec/avcodec.h"
-#include "libavformat/avformat.h"
 
 #define VIDEO_DIR "resources"
 

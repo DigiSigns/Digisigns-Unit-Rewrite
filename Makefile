@@ -4,7 +4,7 @@ CFLAGS = -Wall -pedantic -pipe -g
 SRC = src
 OBJ = build
 DATADIR = resources
-LINK = $(patsubst %,-l %, curl pq pthread avcodec avformat vlc)
+LINK = $(patsubst %,-l %, curl pq pthread vlc)
 
 OUTNAME = app
 
@@ -28,7 +28,7 @@ $(OUTNAME): $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(wildcard $(SRC)/*.c))
 	$(CC) $(CFLAGS) -o $@ $^ $(LINK)
 
 $(OBJ)/%.o: $(SRC)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $^ -I /usr/include/x86_64-linux-gnu/
+	$(CC) $(CFLAGS) -c -o $@ $^
 
 clean:
 	@rm -rf $(OUTNAME) $(OBJ)/* $(DATADIR)/* $(SRC)/.*.swp
