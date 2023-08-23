@@ -60,6 +60,7 @@ def main():
             # breaks otherwise
             audio_stream = ffmpeg.input('anullsrc', f='lavfi').audio
         if isPicture:
+            audio_stream = ffmpeg.input('anullsrc', f='lavfi').audio
             video_stream = ffmpeg.filter(
                 video_stream,
                 'fps',
