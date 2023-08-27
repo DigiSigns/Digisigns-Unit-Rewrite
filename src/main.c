@@ -8,7 +8,7 @@
 #include "status_update.h"
 
 
-#define NUM_THREADS 8
+#define NUM_THREADS 0
 
 int
 main(void)

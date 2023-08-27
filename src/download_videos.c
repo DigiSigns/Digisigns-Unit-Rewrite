@@ -20,16 +20,16 @@
 void
 download_videos(int numThreads)
 {
-	//char const *uid, *sid;
 	PGconn *conn;
 	PGresult *res;
 	int numFields;
 	struct addrNode *list; 
+    char dateStr[256], queryBuffer[2048];
+	char const *uid, *sid;
 
-	//uid = getenv("uid");
-	//sid = getenv("sid");
+	uid = getenv("uid");
+	sid = getenv("sid");
 
-	//printf("Unit ID: %s\nStore ID: %s\n", uid, sid);
 	curl_global_init(CURL_GLOBAL_ALL);
 
 	conn = PQconnectdb(PROD_CONN_STR);
@@ -38,12 +38,22 @@ download_videos(int numThreads)
 		goto EXIT;
 	}
 
+    memset(dateStr, 0, sizeof(dateStr));
+    getSQLDateStr(dateStr, sizeof(dateStr));
+    
+    snprintf(queryBuffer,
+             sizeof(queryBuffer),
+             "SELECT DISTINCT video_url FROM orders WHERE device_id_pk = "
+             "(SELECT id FROM devices WHERE device_id = %s and host_id "
+             "= %s) AND is_approved is TRUE and EXTRACT(MONTH FROM start_date) "
+             "= EXTRACT(MONTH FROM '%s'::DATE);",
+             uid,
+             sid,
+             dateStr
+            );
+
 	// TODO: add the correct UID, SID, and date to query
-	res = PQexec(conn,
-				 "SELECT DISTINCT video_url FROM videos WHERE video_url "
-				 "NOT LIKE '%RealAssist%' AND video_url NOT LIKE '%Virginia%' "
-                 "AND video_url NOT LIKE '%Updating%' AND video_url NOT LIKE '%.MOV%';"
-				);
+	res = PQexec(conn, queryBuffer);
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
 		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));
 		PQclear(res);
@@ -55,14 +65,93 @@ download_videos(int numThreads)
 		for (int j = 0; j < numFields; ++j)
 			addAddrNode(&list, PQgetvalue(res, i, j));
 
-	getVideosMT(list, numThreads);
+    if (PQntuples(res) < 1) {
+        getDefaultVideoURLs(&list, conn, queryBuffer, sizeof(queryBuffer));
+    }
+    else {
+        PQclear(res);
+    }
 
-	PQclear(res);
+	getVideosMT(list, numThreads);
 
 	destroyAddrNodeList(list);
 EXIT:
 	PQfinish(conn);
 	curl_global_cleanup();
+}
+
+void
+getDefaultVideoURLs(struct addrNode **list, PGconn *conn, char *queryBuffer, int bufSize)
+{
+    PGresult *res; 
+
+    char *uid = getenv("uid");
+    char *sid = getenv("sid");
+
+    res = PQexec(conn,
+                 "SELECT DISTINCT video_url FROM orders WHERE device_id_pk = "
+                 "(SELECT id FROM devices WHERE device_id=0 and host_id=0);"
+                );
+
+	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));
+	}
+
+    for (int i = 0; i < PQntuples(res); ++i) {
+        addAddrNode(list, PQgetvalue(res, i, 0));
+    }
+
+    PQclear(res);
+
+    memset(queryBuffer, 0, bufSize);
+    snprintf(queryBuffer,
+             bufSize,
+             "SELECT DISTINCT video_url FROM orders WHERE device_id_pk = "
+             "(SELECT id FROM devices WHERE device_id=0 and host_id=%s);",
+             sid
+            );
+
+    res = PQexec(conn, queryBuffer);
+	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));
+	}
+    for (int i = 0; i < PQntuples(res); ++i) {
+        addAddrNode(list, PQgetvalue(res, i, 0));
+    }
+
+    PQclear(res);
+
+    memset(queryBuffer, 0, bufSize);
+    snprintf(queryBuffer,
+             bufSize,
+             "SELECT video_url FROM \"DefaultVideos\" WHERE device_id_check "
+             ">= %s ORDER BY device_id_check;",
+             uid
+            );
+
+
+    res = PQexec(conn, queryBuffer);
+	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+		fprintf(stderr, "query failed: %s\n", PQerrorMessage(conn));
+	}
+    if (PQntuples(res) > 0) {
+        addAddrNode(list, PQgetvalue(res, 0, 0));
+    }
+
+    PQclear(res);
+}
+
+void
+getSQLDateStr(char *buf, int bufSize)
+{
+    struct tm *tm;
+    time_t raw;
+
+    time(&raw);
+
+    tm = localtime(&raw);
+
+    strftime(buf, bufSize, "%Y-%m-%d", tm);
 }
 
 int

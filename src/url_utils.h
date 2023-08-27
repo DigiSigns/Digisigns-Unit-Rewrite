@@ -11,6 +11,9 @@ void
 getFileNameFromPath(char*, char*, int);
 
 void
+fixRoute(char*, int);
+
+void
 unescapeFileName(char*);
 
 #endif // URL_UTILS_H

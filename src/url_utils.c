@@ -69,7 +69,27 @@ getFileNameFromPath(char *route, char *outBuf, int outBufSize)
 		token = strtok(NULL, "/");
 	}
     free(routeCopy);
-	unescapeFileName(outBuf);
+    printf("Escaped: %s\n", outBuf);
+    fixRoute(outBuf, outBufSize); 
+	//unescapeFileName(outBuf);
+    //printf("Unescaped: %s\n", outBuf);
+}
+
+void
+fixRoute(char *fileName, int fileNameSize)
+{
+    char *fileNameCopy;
+
+    fileNameCopy = malloc(fileNameSize);
+    memset(fileNameCopy, 0, fileNameSize);
+
+    snprintf(fileNameCopy,
+             fileNameSize,
+             "resources/video_inputs/%s",
+             fileName
+            );
+
+    memcpy(fileName, fileNameCopy, fileNameSize);
 }
 
 void

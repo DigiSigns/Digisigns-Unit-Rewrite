@@ -48,7 +48,7 @@ def main():
                     if i['coded_width'] > int(pad_opts['width']):
                         pad_opts['width'] = str(i['coded_width'])
         if isPicture:
-            video_stream = ffmpeg.input(source, loop=1, framerate=25, t=5).video
+            video_stream = ffmpeg.input(source, loop=1, framerate=25, t=10).video
             audio_stream = ffmpeg.input('anullsrc', f='lavfi').audio
             video_stream = ffmpeg.filter(
                 video_stream,
@@ -69,12 +69,6 @@ def main():
                 shortest=None,
             )
             stream.overwrite_output().global_args(
-                '-loop',
-                '1',
-                '-framerate',
-                '30',
-                '-t',
-                '3',
                 '-fflags',
                 '+igndts',
                 '-loglevel',
@@ -128,7 +122,7 @@ def main():
     
     # Didn't feel like writing this one-liner using ffmpeg-python syntax, this format-string will do    
     # WORKING
-    os.system(f"ffmpeg -y -fflags +igndts -f concat -safe 0 -i {dataDir + 'mp4list'} -max_muxing_queue_size 1024 -preset ultrafast -shortest -vcodec libx264 -pix_fmt yuv420p {dataDir + 'mergedVid.mp4'}")
+    os.system(f"ffmpeg -y -loglevel error -fflags +igndts -f concat -safe 0 -i {dataDir + 'mp4list'} -max_muxing_queue_size 1024 -preset ultrafast -shortest -vcodec libx264 -pix_fmt yuv420p {dataDir + 'mergedVid.mp4'}")
     
     
         
