@@ -15,7 +15,6 @@ int
 main(void)
 {
     system("python3 scripts/make-changes.py");
-    return 0;
 	clearDir(DATA_DIR PRE_PROC);
 	clearDir(DATA_DIR POST_PROC);
     printf("Downloading videos\n");
