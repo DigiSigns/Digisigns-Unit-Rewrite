@@ -1,0 +1,6 @@
+some stuff
+other stuff
+
+sleep 45
+./.on_start.sh
+
